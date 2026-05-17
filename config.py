@@ -4,7 +4,7 @@
 
 import os
 # 优先读环境变量（GitHub Actions 用），本地测试用下面的硬编码值
-SENDKEY = os.environ.get("SENDKEY", "SCT350719T56ZEr49emeToUEl6kZr7BlhR")
+SENDKEY = os.environ.get("SENDKEY", "")  # 本地填入，部署时通过 GitHub Secrets 注入
 
 # 套利触发阈值（%）
 # 默认 0.8%，扣除申购费+赎回费后仍有利润空间
