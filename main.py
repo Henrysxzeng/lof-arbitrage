@@ -178,6 +178,13 @@ def main(force: bool = False):
     opp_df = pd.DataFrame(new_opps)
     logger.info(f"推送 {len(opp_df)} 个新机会")
 
+    # 预取命中基金的赎回费率（并发，30天缓存）
+    try:
+        from fee_fetcher import prefetch_fees
+        prefetch_fees(list(opp_df["代码"].astype(str)))
+    except Exception as e:
+        logger.warning(f"费率预取失败: {e}")
+
     if send(opp_df, indices, risk):
         now_ts = datetime.now().timestamp()
         for row in new_opps:

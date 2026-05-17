@@ -15,7 +15,11 @@ _REDEEM_FEE_DEFAULT = 1.5  # 未在费率表中的基金，用最保守估算
 
 
 def _redeem_fee(code: str) -> float:
-    return config.FUND_REDEMPTION_FEE.get(str(code), _REDEEM_FEE_DEFAULT)
+    try:
+        from fee_fetcher import get_redemption_fee
+        return get_redemption_fee(str(code))
+    except Exception:
+        return config.FUND_REDEMPTION_FEE.get(str(code), _REDEEM_FEE_DEFAULT)
 
 
 def _post(title: str, content: str) -> bool:
