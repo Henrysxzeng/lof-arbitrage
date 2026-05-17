@@ -22,7 +22,7 @@ def _post(title: str, content: str) -> bool:
         resp = requests.post(
             _URL.format(sendkey=config.SENDKEY),
             data={"title": title, "desp": content},
-            timeout=10,
+            timeout=30,
         )
         r = resp.json()
         ok = r.get("data", {}).get("errno") == 0 or r.get("code") == 200
@@ -45,13 +45,16 @@ def _net_profit(rate: float) -> float:
 # ── 买入推送 ──────────────────────────────────────────────
 
 def send(opportunities: pd.DataFrame, indices: dict = None, risk: tuple = None) -> bool:
-    max_rate = opportunities["折溢价率"].abs().max()
-    title = f"【LOF套利】{len(opportunities)} 个机会 · 偏离 {max_rate:.2f}%"
-    content = _build_buy_md(opportunities, indices or {}, risk or ("未知", ""))
+    # 只推最优的 5 个，防止消息过长超时
+    top = opportunities.reindex(opportunities["折溢价率"].abs().nlargest(5).index)
+    max_rate = top["折溢价率"].abs().max()
+    total = len(opportunities)
+    title = f"【LOF套利】{total} 个机会 · 最优 {max_rate:.2f}%"
+    content = _build_buy_md(top, indices or {}, risk or ("未知", ""), total_count=total)
     return _post(title, content)
 
 
-def _build_buy_md(df: pd.DataFrame, indices: dict, risk: tuple) -> str:
+def _build_buy_md(df: pd.DataFrame, indices: dict, risk: tuple, total_count: int = 0) -> str:
     now = datetime.now().strftime("%H:%M")
     risk_level, risk_desc = risk
     has_nav = "净值" in df.columns
@@ -65,8 +68,9 @@ def _build_buy_md(df: pd.DataFrame, indices: dict, risk: tuple) -> str:
     else:
         idx_lines = "数据获取失败"
 
+    extra = f"（共 {total_count} 个，显示最优 {len(df)} 个）" if total_count > len(df) else ""
     blocks = [
-        f"# LOF/ETF 套利提醒  {now}",
+        f"# LOF/ETF 套利提醒  {now}{extra}",
         "",
         f"**大盘：** {idx_lines}",
         f"**风险评估：** {risk_level} — {risk_desc}",
