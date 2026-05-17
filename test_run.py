@@ -22,7 +22,7 @@ logging.basicConfig(
 import config
 from fetcher import get_raw_data, normalize
 from detector import detect
-from notifier import send, _build_markdown
+from notifier import send, _build_buy_md as _build_markdown
 
 
 def sep(title):

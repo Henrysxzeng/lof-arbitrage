@@ -141,7 +141,7 @@ def _ai_prompt(r, rate: float, net: float, indices: dict, risk_level: str, risk_
         f"{idx_str}\n"
         f"市场风险评估：{risk_level}（{risk_desc}）\n\n"
         f"【请明确回答以下三点，不要模糊表述】\n"
-        f"1. 买还是不买？（只回答"买"或"不买"）\n"
+        f"1. 买还是不买？（只回答【买】或【不买】）\n"
         f"2. 建议投入金额？（给具体数字或比例）\n"
         f"3. 理由（一句话，20字内）"
     )
@@ -211,7 +211,7 @@ def _build_followup_md(items: list, indices: dict) -> str:
                 f"我昨日以 {buy_price:.3f} 买入了 {h['name']}（{h['code']}）进行折价套利，"
                 f"今日净值为 {nav_str}，大盘今日{idx_lines}。"
                 f"预估赎回后净利润约 {actual_profit:.2f}%。"
-                f"请明确告诉我：今日赎回还是继续持有？只回答"赎回"或"持有"，附一句理由。"
+                f"请明确告诉我：今日赎回还是继续持有？只回答【赎回】或【持有】，附一句理由。"
             )
         else:
             cur_price_str = f"{float(cur['场内价']):.3f}" if cur is not None else "未知"
@@ -220,7 +220,7 @@ def _build_followup_md(items: list, indices: dict) -> str:
                 f"我昨日申购了 {h['name']}（{h['code']}）进行溢价套利，"
                 f"申购价（净值）约 {buy_price:.3f}，当前场内价 {cur_price_str}，"
                 f"大盘今日{idx_lines}。"
-                f"请明确告诉我：今日卖出还是继续持有？只回答"卖出"或"持有"，附一句理由。"
+                f"请明确告诉我：今日卖出还是继续持有？只回答【卖出】或【持有】，附一句理由。"
             )
 
         blocks += [
