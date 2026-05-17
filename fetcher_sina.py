@@ -157,7 +157,7 @@ def get_raw_data_sina() -> Optional[pd.DataFrame]:
                 "场内价":  price,
                 "净值":    nav_val,
                 "折溢价率": round(premium, 4),
-                "成交量":   0,   # 新浪不含成交量，设 0 跳过成交量过滤
+                # 不含成交量列，detector 会跳过成交量过滤
                 "市场":    1 if exchange == "sh" else 0,
             })
         except (ValueError, TypeError):
