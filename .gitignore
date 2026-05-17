@@ -1,0 +1,4 @@
+*.log
+.cooldown.json
+__pycache__/
+*.pyc
