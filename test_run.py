@@ -100,8 +100,11 @@ def step4_notify(opps, do_send):
         }])
         print("[INFO] 无真实机会，使用假数据测试推送格式")
 
+    from market import get_indices, risk_level
+    indices = get_indices()
+    risk = risk_level(indices)
     print("--- 消息预览 ---")
-    print(_build_markdown(opps, indices={}, risk=("低风险（测试）", "测试数据")))
+    print(_build_markdown(opps, indices=indices, risk=risk))
     print("--- 预览结束 ---")
 
     if not do_send:
