@@ -68,8 +68,13 @@ def get_raw_data(lof_only: bool = False) -> Optional[pd.DataFrame]:
                 logger.warning(f"{url} 第 {attempt+1} 次失败: {e}")
                 if attempt < 1:
                     time.sleep(5)
-    logger.error("所有接口均失败")
-    return None
+    logger.warning("东方财富接口均失败，尝试备用数据源（新浪+fundgz）")
+    try:
+        from fetcher_sina import get_raw_data_sina
+        return get_raw_data_sina()
+    except Exception as e:
+        logger.error(f"备用数据源也失败: {e}")
+        return None
 
 
 def normalize(df: pd.DataFrame) -> Optional[pd.DataFrame]:
