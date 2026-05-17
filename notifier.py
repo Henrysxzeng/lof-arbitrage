@@ -108,6 +108,7 @@ def _build_buy_md(df: pd.DataFrame, indices: dict, risk: tuple, total_count: int
         )
 
         steps = _steps(rate, r["代码"], r["名称"])
+        impact_warn = _impact_warning(r)
         ai_prompt = _ai_prompt(r, rate, net, indices, risk_level, risk_desc)
 
         blocks += [
@@ -119,7 +120,7 @@ def _build_buy_md(df: pd.DataFrame, indices: dict, risk: tuple, total_count: int
             f"| {r['场内价']:.3f} | {nav_str} | **{rate:+.2f}%** | {profit_hint} |",
             "",
             steps,
-            "",
+            *([impact_warn, ""] if impact_warn else []),
             "> **复制下方指令发给 AI，获取买入建议：**",
             "",
             "```",
@@ -129,6 +130,23 @@ def _build_buy_md(df: pd.DataFrame, indices: dict, risk: tuple, total_count: int
         ]
 
     return "\n".join(blocks)
+
+
+def _impact_warning(r) -> str:
+    """根据成交量估算冲击成本风险提示"""
+    try:
+        vol = float(r.get("成交量", 0))
+        price = float(r.get("场内价", 0))
+        if vol <= 0 or price <= 0:
+            return ""
+        daily_amount = vol * 100 * price / 10000  # 万元
+        if daily_amount < 50:
+            return f"> ⚠️ **流动性警告**：日成交额约 {daily_amount:.0f} 万元，单笔建议不超过 {daily_amount * 0.1:.0f} 万元，超过将显著推高买入价"
+        if daily_amount < 200:
+            return f"> ℹ️ 日成交额约 {daily_amount:.0f} 万元，单笔建议不超过 {daily_amount * 0.1:.0f} 万元"
+    except Exception:
+        pass
+    return ""
 
 
 def _steps(rate: float, code: str, name: str) -> str:
