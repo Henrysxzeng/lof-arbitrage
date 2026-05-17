@@ -8,10 +8,14 @@ import config
 logger = logging.getLogger(__name__)
 
 _URL = "https://sctapi.ftqq.com/{sendkey}.send"
-_BUY_COMM   = 0.025
-_SELL_COMM  = 0.025
-_SUB_FEE    = 0.1
-_REDEEM_FEE = 1.5   # 最保守估算（持有 <7 天）
+_BUY_COMM  = 0.025
+_SELL_COMM = 0.025
+_SUB_FEE   = 0.1
+_REDEEM_FEE_DEFAULT = 1.5  # 未在费率表中的基金，用最保守估算
+
+
+def _redeem_fee(code: str) -> float:
+    return config.FUND_REDEMPTION_FEE.get(str(code), _REDEEM_FEE_DEFAULT)
 
 
 def _post(title: str, content: str) -> bool:
@@ -36,10 +40,20 @@ def _post(title: str, content: str) -> bool:
         return False
 
 
-def _net_profit(rate: float) -> float:
+def _net_profit(rate: float, code: str = "") -> float:
     if rate > 0:
         return rate - _SUB_FEE - _SELL_COMM
-    return abs(rate) - _BUY_COMM - _REDEEM_FEE
+    return abs(rate) - _BUY_COMM - _redeem_fee(code)
+
+
+def _signal_strength(net: float) -> str:
+    if net >= 2.0:
+        return "🔥 极强"
+    if net >= 1.0:
+        return "强"
+    if net >= 0.5:
+        return "中"
+    return "弱"
 
 
 # ── 买入推送 ──────────────────────────────────────────────
@@ -79,10 +93,15 @@ def _build_buy_md(df: pd.DataFrame, indices: dict, risk: tuple, total_count: int
 
     for _, r in df.iterrows():
         rate    = r["折溢价率"]
-        net     = _net_profit(rate)
+        code    = str(r["代码"])
+        net     = _net_profit(rate, code)
         tag     = "溢价" if rate > 0 else "折价"
         nav_str = f"{r['净值']:.4f}" if has_nav and pd.notna(r.get("净值")) else "—"
-        profit_hint = f"约 **{net:.2f}%**" if net > 0 else f"**{net:.2f}%（手续费后亏损，不建议）**"
+        strength = _signal_strength(net) if net > 0 else ""
+        profit_hint = (
+            f"约 **{net:.2f}%** [{strength}]" if net > 0
+            else f"**{net:.2f}%（手续费后亏损，不建议）**"
+        )
 
         steps = _steps(rate, r["代码"], r["名称"])
         ai_prompt = _ai_prompt(r, rate, net, indices, risk_level, risk_desc)

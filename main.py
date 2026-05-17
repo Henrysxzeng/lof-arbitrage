@@ -146,6 +146,13 @@ def main(force: bool = False):
     # 先检查昨天的持仓跟踪
     _check_followup(df, indices)
 
+    # 大盘保护：跌超阈值时禁止折价套利信号
+    if indices:
+        worst = min(v["change_pct"] for v in indices.values())
+        if worst <= config.MARKET_DROP_BLOCK:
+            logger.info(f"大盘跌幅 {worst:.1f}% 超过阈值，本轮跳过折价套利信号")
+            return
+
     if df is None or df.empty:
         logger.info("无有效数据，结束")
         return
