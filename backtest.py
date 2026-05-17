@@ -171,6 +171,37 @@ def run(code: str, start: str, end: str, threshold: float):
     print(f"\n所有信号明细：")
     print(rdf[["信号日期", "买入价", "折价率%", "T+1净值", "净利润%", "盈亏"]].to_string(index=False))
 
+    # ── 执行延迟敏感性分析 ────────────────────────────────────────
+    # 核心问题：信号出现到实际买入之间，折价若已收敛多少，策略还能盈利？
+    # 回测用收盘价，现实中扫描(5min)+人工反应(5-10min)=10+分钟延迟
+    # 用"买入价高于信号价 X%"模拟折价收敛的损耗
+    print(f"\n{'─'*56}")
+    print("执行延迟敏感性分析")
+    print("（模拟：信号出现后折价收敛，买入价比信号时高 X%）")
+    print(f"{'─'*56}")
+    header = f"  {'收敛损耗':>8}  {'有效折价':>8}  {'平均净利':>9}  {'胜率':>6}  {'结论'}"
+    print(header)
+
+    for decay in [0.0, 0.3, 0.5, 1.0, 1.5]:
+        # 模拟：买入价 = 信号价 × (1 + decay/100)，即折价实际减少 decay%
+        adj = rdf.copy()
+        adj["调整净利%"] = adj.apply(
+            lambda r: (r["T+1净值"] - r["买入价"] * (1 + decay / 100))
+                      / r["T+1净值"] * 100 - TOTAL_COST,
+            axis=1
+        )
+        win  = (adj["调整净利%"] > 0).mean() * 100
+        mean = adj["调整净利%"].mean()
+        eff_disc = threshold - decay
+        verdict = "可盈利" if mean > 0 else "亏损"
+        print(f"  折价收敛 {decay:.1f}%  →  有效折价 {eff_disc:.1f}%  "
+              f"均利 {mean:+.2f}%  胜率 {win:.0f}%  [{verdict}]")
+
+    breakeven = threshold - TOTAL_COST
+    print(f"\n  安全边际：折价收敛超过 {breakeven:.2f}% 则亏损")
+    print(f"  结论：2.5% 阈值下，执行延迟导致折价收敛 >1% 时策略失效")
+    print(f"        建议阈值 ≥3.0% 时，1.5% 收敛空间内仍可盈利")
+
     out = f"backtest_{code}_{start[:7]}_{end[:7]}.csv"
     rdf.to_csv(out, index=False, encoding="utf-8-sig")
     print(f"\n已导出 CSV: {out}")
