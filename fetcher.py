@@ -10,7 +10,10 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-_URL = "https://push2.eastmoney.com/api/qt/clist/get"
+_URLS = [
+    "https://push2.eastmoney.com/api/qt/clist/get",
+    "https://push2ex.eastmoney.com/api/qt/clist/get",  # 备用节点
+]
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
     "Referer": "https://fund.eastmoney.com/",
@@ -49,22 +52,23 @@ def get_raw_data(lof_only: bool = False) -> Optional[pd.DataFrame]:
         "fields": ",".join(_FIELD_MAP.keys()),
         "_": int(time.time() * 1000),
     }
-    for attempt in range(3):
-        try:
-            resp = requests.get(_URL, params=params, headers=_HEADERS, timeout=15)
-            resp.raise_for_status()
-            items = resp.json().get("data", {}).get("diff", [])
-            if not items:
-                logger.warning("API 返回空列表")
-                return None
-            df = pd.DataFrame(items).rename(columns=_FIELD_MAP)
-            logger.info(f"获取到 {len(df)} 条记录")
-            return df
-        except Exception as e:
-            logger.warning(f"第 {attempt+1} 次请求失败: {e}")
-            if attempt < 2:
-                time.sleep(5)
-    logger.error("数据获取失败，已重试 3 次")
+    for url in _URLS:
+        for attempt in range(2):
+            try:
+                resp = requests.get(url, params=params, headers=_HEADERS, timeout=15)
+                resp.raise_for_status()
+                items = resp.json().get("data", {}).get("diff", [])
+                if not items:
+                    logger.warning(f"{url} 返回空列表")
+                    break
+                df = pd.DataFrame(items).rename(columns=_FIELD_MAP)
+                logger.info(f"获取到 {len(df)} 条记录（来源: {url}）")
+                return df
+            except Exception as e:
+                logger.warning(f"{url} 第 {attempt+1} 次失败: {e}")
+                if attempt < 1:
+                    time.sleep(5)
+    logger.error("所有接口均失败")
     return None
 
 
