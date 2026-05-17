@@ -25,9 +25,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-_TZ            = pytz.timezone("Asia/Shanghai")
-_COOLDOWN_FILE = os.path.join(tempfile.gettempdir(), "lof_cooldown.json")
-_HISTORY_FILE  = os.path.join(tempfile.gettempdir(), "lof_history.json")
+_TZ              = pytz.timezone("Asia/Shanghai")
+_COOLDOWN_FILE   = os.path.join(tempfile.gettempdir(), "lof_cooldown.json")
+_HISTORY_FILE    = os.path.join(tempfile.gettempdir(), "lof_history.json")
+_PREV_SCAN_FILE  = os.path.join(tempfile.gettempdir(), "lof_prev_scan.json")
 
 
 # ── 交易时段判断 ──────────────────────────────────────────
@@ -63,6 +64,26 @@ def _filter_cooldown(opps: pd.DataFrame, cooldown: dict) -> list:
         row for _, row in opps.iterrows()
         if now_ts - cooldown.get(str(row["代码"]), 0) > config.COOLDOWN_MINUTES * 60
     ]
+
+
+def _filter_persistent(opps: pd.DataFrame) -> pd.DataFrame:
+    """只保留上次扫描也出现过的折价机会（持续 5 分钟以上才算真实）"""
+    prev_raw = _load_json(_PREV_SCAN_FILE)
+    prev_codes = set(prev_raw) if isinstance(prev_raw, list) else set()
+
+    # 更新本轮扫描记录
+    current_codes = list(opps["代码"].astype(str))
+    _save_json(_PREV_SCAN_FILE, current_codes)
+
+    if not prev_codes:
+        logger.info("首次扫描，跳过持续性过滤（等待下一轮确认）")
+        return pd.DataFrame()
+
+    persistent = opps[opps["代码"].astype(str).isin(prev_codes)]
+    filtered = len(opps) - len(persistent)
+    if filtered:
+        logger.info(f"持续性过滤：{filtered} 个仅出现一次的信号已排除")
+    return persistent
 
 
 # ── 历史记录（次日跟踪） ───────────────────────────────────
@@ -132,6 +153,13 @@ def main(force: bool = False):
     opps = detect(df)
     if opps.empty:
         logger.info("无套利机会")
+        _save_json(_PREV_SCAN_FILE, [])  # 清空上轮记录
+        return
+
+    # 持续性过滤：必须连续两次扫描都出现才触发（过滤假信号）
+    opps = _filter_persistent(opps)
+    if opps.empty:
+        logger.info("机会未通过持续性验证，等待下一轮确认")
         return
 
     cooldown = _load_json(_COOLDOWN_FILE)
