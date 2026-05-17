@@ -44,24 +44,28 @@ def get_raw_data(lof_only: bool = False) -> Optional[pd.DataFrame]:
         "pn": 1, "pz": 10000, "po": 1, "np": 1,
         "fltt": 2, "invt": 2,
         "ut": _UT,
-        "fid": "f9",           # 按折溢价率绝对值排序，最有价值的排最前
+        "fid": "f3",
         "fs": _FS_LOF if lof_only else _FS_ALL,
         "fields": ",".join(_FIELD_MAP.keys()),
         "_": int(time.time() * 1000),
     }
-    try:
-        resp = requests.get(_URL, params=params, headers=_HEADERS, timeout=15)
-        resp.raise_for_status()
-        items = resp.json().get("data", {}).get("diff", [])
-        if not items:
-            logger.warning("API 返回空列表")
-            return None
-        df = pd.DataFrame(items).rename(columns=_FIELD_MAP)
-        logger.info(f"获取到 {len(df)} 条记录")
-        return df
-    except Exception as e:
-        logger.error(f"数据获取失败: {e}")
-        return None
+    for attempt in range(3):
+        try:
+            resp = requests.get(_URL, params=params, headers=_HEADERS, timeout=15)
+            resp.raise_for_status()
+            items = resp.json().get("data", {}).get("diff", [])
+            if not items:
+                logger.warning("API 返回空列表")
+                return None
+            df = pd.DataFrame(items).rename(columns=_FIELD_MAP)
+            logger.info(f"获取到 {len(df)} 条记录")
+            return df
+        except Exception as e:
+            logger.warning(f"第 {attempt+1} 次请求失败: {e}")
+            if attempt < 2:
+                time.sleep(5)
+    logger.error("数据获取失败，已重试 3 次")
+    return None
 
 
 def normalize(df: pd.DataFrame) -> Optional[pd.DataFrame]:
