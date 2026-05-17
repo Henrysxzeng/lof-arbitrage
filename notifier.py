@@ -149,21 +149,45 @@ def _impact_warning(r) -> str:
     return ""
 
 
+_COMMODITY_KEYWORDS = ["黄金", "白银", "原油", "铜", "有色金属"]
+
+def _is_commodity(name: str) -> bool:
+    return any(kw in str(name) for kw in _COMMODITY_KEYWORDS)
+
 def _steps(rate: float, code: str, name: str) -> str:
-    if rate < 0:
+    commodity = _is_commodity(name)
+    if rate < 0:  # 折价套利
+        if commodity:
+            return (
+                f"**操作步骤（商品LOF·广发易淘金）：**\n\n"
+                f"1. 交易 → 买入 → 搜索 `{code}` → 限价委托买入\n"
+                f"2. 次日：理财 → 场内基金 → 找到 {name} → 赎回\n\n"
+                f"> 注意：商品LOF赎回后获得现金（非实物）\n"
+                f"> 确认该基金支持场内直接赎回，部分需先转托管"
+            )
         return (
             f"**操作步骤（广发易淘金）：**\n\n"
             f"1. 交易 → 买入 → 搜索 `{code}` → 限价委托买入\n"
             f"2. 次日：理财 → 场内基金 → 找到 {name} → 赎回\n\n"
             f"> 注意：赎回费率请在基金详情页「费率说明」确认"
         )
-    return (
-        f"**操作步骤（广发易淘金）：**\n\n"
-        f"1. 理财 → 基金 → 搜索 `{code}` → 申购\n"
-        f"2. T+1 份额到账后：申请「转托管」（场外转场内）\n"
-        f"3. 转托管完成后：交易 → 卖出 `{code}`\n\n"
-        f"> 溢价套利步骤多，建议溢价 >1.5% 再操作"
-    )
+    else:  # 溢价套利
+        if commodity:
+            return (
+                f"**操作步骤（商品LOF溢价·广发易淘金）：**\n\n"
+                f"1. 理财 → 基金 → 搜索 `{code}` → 申购（按当日净值）\n"
+                f"2. T+1 份额到账 → 转托管至证券账户\n"
+                f"3. 交易 → 卖出 `{code}` 锁定溢价\n\n"
+                f"> 商品LOF溢价套利相对可行（国内外价差真实存在）\n"
+                f"> 建议溢价 >2% 再操作，注意申购限额"
+            )
+        return (
+            f"**操作步骤（广发易淘金）：**\n\n"
+            f"1. 理财 → 基金 → 搜索 `{code}` → 申购\n"
+            f"2. T+1 份额到账后：申请「转托管」（场外转场内）\n"
+            f"3. 转托管完成后：交易 → 卖出 `{code}`\n\n"
+            f"> 溢价套利步骤多，建议溢价 >1.5% 再操作"
+        )
 
 
 def _ai_prompt(r, rate: float, net: float, indices: dict, risk_level: str, risk_desc: str) -> str:
